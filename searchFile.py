@@ -9,7 +9,7 @@ time_start = time.time()
 
 classList = ['Human face', 'Human eye', 'Human nose', 'Human mouth']
 classCsvFilePath = 'F:\\python\\40-50-OIDv4_ToolKit_download_google_public_images\\OID\\csv_folder\\class-descriptions-boxable.csv'
-labelFolderPath = 'C:\\Users\\User\\Desktop\\pythontest'
+labelFolderPath = 'F:\\python\\40-50-OIDv4_ToolKit_download_google_public_images\\OID\\Dataset'
 annotationsbaseCsvPath = 'F:\\python\\40-50-OIDv4_ToolKit_download_google_public_images\\OID\\csv_folder\\'
 annotationCsv = '-annotations-bbox.csv'
 dataList = ['train', 'validation', 'test']
@@ -27,35 +27,38 @@ def searchClassCode(className):
     return classCode, className2
 
 
-def writeFileData(csv_df, classCode, className, folderPath, size):
-    with open(folderPath, 'w') as out_file:
-        for row in range(csv_df.shape[0]):
+def writeFileData(boxes, className, folderPath, size):
+    with open(folderPath, 'a') as out_file:
+        for box in boxes:
             a = []
-            for i in range(4, 8):
-                if i < 6:
-                    a.append(float(csv_df.iloc[row][i])*size[0])
+            for i in range(4):
+                if i < 2:
+                    a.append(float(box[i])*size[0])
                 else:
-                    a.append(float(csv_df.iloc[row][i])*size[1])
-            out_file.write("{} {} {} {} {}\n".format(className[classCode.index(
-                csv_df.iloc[row][2])], a[0], a[2], a[1], a[3]))
+                    a.append(float(box[i])*size[1])
+            out_file.write("{} {} {} {} {}\n".format(
+                className, a[0], a[2], a[1], a[3]))
 
 
 def searchFileData(imageNameList, classCode, className, folderName, secondFolderName):
     dataList = []
-    with open(annotationsbaseCsvPath+folderName+annotationCsv, newline='') as df:
-        csv_data = pandas.read_csv(df)
-        csv_df = pandas.DataFrame(csv_data)
-        for imageName in imageNameList:
-            a = csv_df["ImageID"] == imageName
-            c = csv_df["LabelName"].isin(classCode)
-            b = csv_df[a & c]
+    csv_df = pandas.read_csv(annotationsbaseCsvPath+folderName+annotationCsv)
+    a = csv_df["LabelName"] == classCode
+    groups = csv_df[a].groupby("ImageID")
+
+    for imageName in imageNameList:
+        try:
+            boxes = groups.get_group(imageName)[
+                ['XMin', 'XMax', 'YMin', 'YMax']].values.tolist()
             img = Image.open(labelFolderPath+'\\'+folderName +
                              '\\'+secondFolderName+'\\'+imageName+'.jpg')
-            writeFileData(b, classCode, className, labelFolderPath +
-                          '\\'+folderName+'\\'+secondFolderName+'\\Label\\'+imageName+'.txt', img.size)
+            writeFileData(boxes, className, labelFolderPath + '\\' +
+                          folderName+'\\'+secondFolderName+'\\Label\\'+imageName+'.txt', img.size)
+        except:
+            continue
 
 
-classCode, className = searchClassCode(classList)
+classCodeList, classNameList = searchClassCode(classList)
 
 os.chdir(labelFolderPath)
 folderList = os.listdir()
@@ -71,8 +74,11 @@ for folderName in folderList:
                 if imageName != 'Label':
                     imageName = imageName.split('.')[0]
                     imageList.append(imageName)
-            searchFileData(imageList, classCode, className,
-                           folderName, secondFolderName)
+            count = len(classCodeList)
+            for i in range(count):
+                searchFileData(imageList, classCodeList[i], classNameList[i],
+                               folderName, secondFolderName)
+
 
 time_end = time.time()
 print('test cost', time_end-time_start, 's')
